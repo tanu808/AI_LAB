@@ -126,3 +126,7 @@ if result != 'FAILURE':
     print("Robert is a criminal!")
 else:
     print("Robert is not a criminal.")
+
+
+Output :
+Robert is a criminal!
