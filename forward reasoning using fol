@@ -1,132 +1,142 @@
-def FOL_FC_ASK(KB, alpha):
-    # Initialize the new sentences to be inferred in this iteration
-    new = set()
+# FORWARD CHAINING EXAMPLE
+# Problem: The given rules cannot prove "john likes peanuts"
+# Analysis at the end shows why
 
-    while new:  # Repeat until new is empty
-        new = set()  # Clear new sentences on each iteration
+class Rule:
+    def __init__(self, premises, conclusion):
+        self.premises = premises
+        self.conclusion = conclusion
+    
+    def __str__(self):
+        return f"{' & '.join(self.premises)} ⇒ {self.conclusion}"
 
-        # For each rule in KB
-        for rule in KB:
-            # Standardize the rule variables to avoid conflicts
-            standardized_rule = standardize_variables(rule)
-            p1_to_pn, q = standardized_rule  # Premises (p1, ..., pn) and conclusion (q)
+def forward_chaining(kb, rules, goal):
+    """Forward chaining algorithm"""
+    print(f"Initial KB: {kb}")
+    print(f"Goal: {goal}")
+    print("-" * 60)
+    
+    iteration = 0
+    while True:
+        iteration += 1
+        print(f"\nIteration {iteration}:")
+        new_facts = set()
+        
+        for rule in rules:
+            print(f"\n  Checking: {rule}")
+            
+            # Check if all premises are satisfied
+            if all(p in kb for p in rule.premises):
+                print(f"  ✓ All premises satisfied")
+                
+                if rule.conclusion not in kb:
+                    print(f"  → Deriving new fact: {rule.conclusion}")
+                    new_facts.add(rule.conclusion)
+                    
+                    if rule.conclusion == goal:
+                        kb.add(rule.conclusion)
+                        print("\n" + "=" * 60)
+                        print(f"✓ GOAL PROVEN: {goal}")
+                        return True
+                else:
+                    print(f"  → Conclusion already known")
+        
+        if not new_facts:
+            print("\n" + "=" * 60)
+            print("✗ GOAL CANNOT BE PROVEN")
+            print("No new facts can be derived")
+            return False
+        
+        kb.update(new_facts)
+        print(f"\nKB after iteration {iteration}: {sorted(kb)}")
 
-            # For each substitution θ such that Subst(θ, p1, ..., pn) matches the premises
-            for theta in get_matching_substitutions(p1_to_pn, KB):
-                q_prime = apply_substitution(theta, q)
+# KNOWLEDGE BASE
+KB = {
+    "apple is food",
+    "vegetables are food",
+    "anil eats peanuts",
+    "anil is alive"
+}
 
-                # If q_prime does not unify with some sentence already in KB or new
-                if not any(unify(q_prime, sentence) != 'FAILURE' for sentence in KB.union(new)):
-                    new.add(q_prime)  # Add q_prime to new
+# RULES
+rules = [
+    # Rule 2: If X eats Y and X is alive, then Y is food
+    Rule(["anil eats peanuts", "anil is alive"], "peanuts is food"),
+    
+    # Rule 4: If anil eats X, then harry eats X
+    Rule(["anil eats peanuts"], "harry eats peanuts"),
+]
 
-                    # Unify q_prime with the query (alpha)
-                    phi = unify(q_prime, alpha)
-                    if phi != 'FAILURE':
-                        return phi  # Return the substitution if it unifies
+# GOAL
+goal = "john likes peanuts"
 
-        # Add newly inferred sentences to the knowledge base
-        KB.update(new)
+# RUN
+print("FORWARD CHAINING SIMULATION\n")
+success = forward_chaining(KB, rules, goal)
 
-    return False  # Return false if no substitution is found
-
-
-def standardize_variables(rule):
-    """
-    Standardize variables in the rule to avoid variable conflicts.
-    Rule is assumed to be a tuple (premises, conclusion).
-    """
-    premises, conclusion = rule
-    # Apply standardization logic here (for simplicity, assume no conflict in this case)
-    return (premises, conclusion)
-
-
-def get_matching_substitutions(premises, KB):
-    """
-    Get matching substitutions for the premises in the KB.
-    This is a placeholder to represent how substitutions would be found.
-    """
-    # Implement substitution matching here
-    return []  # This should return a list of valid substitutions
-
-
-def apply_substitution(theta, expression):
-    """
-    Apply a substitution θ to an expression.
-    This function will replace variables in expression with their corresponding terms from θ.
-    """
-    if isinstance(expression, str) and expression.startswith('?'):
-        return theta.get(expression, expression)  # Apply substitution to variable
-    elif isinstance(expression, tuple):
-        return tuple(apply_substitution(theta, arg) for arg in expression)
-    return expression
-
-
-def unify(psi1, psi2, subst=None):
-    """Unification algorithm (simplified)"""
-    if subst is None:
-        subst = {}
-
-    def apply_subst(s_map, expr):
-        if isinstance(expr, str) and expr.startswith('?'):
-            return s_map.get(expr, expr)
-        elif isinstance(expr, tuple):
-            return tuple(apply_subst(s_map, arg) for arg in expr)
-        return expr
-
-    def is_variable(expr):
-        return isinstance(expr, str) and expr.startswith('?')
-
-    _psi1 = apply_subst(subst, psi1)
-    _psi2 = apply_subst(subst, psi2)
-
-    if is_variable(_psi1) or is_variable(_psi2) or not isinstance(_psi1, tuple) or not isinstance(_psi2, tuple):
-        if _psi1 == _psi2:
-            return subst
-        elif is_variable(_psi1):
-            if _psi1 in str(_psi2):
-                return 'FAILURE'
-            return {**subst, _psi1: _psi2}
-        elif is_variable(_psi2):
-            if _psi2 in str(_psi1):
-                return 'FAILURE'
-            return {**subst, _psi2: _psi1}
-        else:
-            return 'FAILURE'
-
-    if _psi1[0] != _psi2[0] or len(_psi1) != len(_psi2):
-        return 'FAILURE'
-
-    for arg1, arg2 in zip(_psi1[1:], _psi2[1:]):
-        s = unify(arg1, arg2, subst)
-        if s == 'FAILURE':
-            return 'FAILURE'
-        subst = s
-
-    return subst
-
-# Knowledge Base (KB)
-KB = set()
-
-# Adding facts to KB:
-KB.add(('american', 'Robert'))  # Robert is an American
-KB.add(('hostile_nation', 'Country_A'))  # Country A is a hostile nation
-KB.add(('sell_weapons', 'Robert', 'Country_A'))  # Robert sold weapons to Country A
-
-# Adding the rule (the law):
-KB.add((('american(x)', 'hostile_nation(y)', 'sell_weapons(x, y)'),
-         'criminal(x)'))
-
-# Goal: Prove that Robert is a criminal
-goal = 'criminal(Robert)'
-
-# Calling FOL_FC_ASK to prove the goal
-result = FOL_FC_ASK(KB, goal)
-
-if result != 'FAILURE':
-    print("Robert is a criminal!")
-else:
-    print("Robert is not a criminal.")
+# ANALYSIS
+print("\n" + "=" * 60)
+print("PROBLEM ANALYSIS:")
+print("=" * 60)
+print("The goal 'john likes peanuts' CANNOT be proven because:")
+print("\n1. No rule defines 'likes' relationships")
+print("   - The KB has facts about 'eats', but nothing connects eating to liking")
+print("\n2. No information about 'john' exists")
+print("   - KB mentions 'anil' and 'harry', but not 'john'")
+print("\n3. To prove this goal, you would need rules like:")
+print("   - Rule: X eats Y ⇒ X likes Y")
+print("   - Fact: john eats peanuts")
+print("   OR")
+print("   - Fact: john is harry (if john=harry)")
+print("   - Rule: harry eats peanuts ⇒ john likes peanuts")
 
 
-Output :
-Robert is a criminal!
+FORWARD CHAINING SIMULATION
+
+Initial KB: {'anil eats peanuts', 'apple is food', 'vegetables are food', 'anil is alive'}
+Goal: john likes peanuts
+------------------------------------------------------------
+
+Iteration 1:
+
+  Checking: anil eats peanuts & anil is alive ⇒ peanuts is food
+  ✓ All premises satisfied
+  → Deriving new fact: peanuts is food
+
+  Checking: anil eats peanuts ⇒ harry eats peanuts
+  ✓ All premises satisfied
+  → Deriving new fact: harry eats peanuts
+
+KB after iteration 1: ['anil eats peanuts', 'anil is alive', 'apple is food', 'harry eats peanuts', 'peanuts is food', 'vegetables are food']
+
+Iteration 2:
+
+  Checking: anil eats peanuts & anil is alive ⇒ peanuts is food
+  ✓ All premises satisfied
+  → Conclusion already known
+
+  Checking: anil eats peanuts ⇒ harry eats peanuts
+  ✓ All premises satisfied
+  → Conclusion already known
+
+============================================================
+✗ GOAL CANNOT BE PROVEN
+No new facts can be derived
+
+============================================================
+PROBLEM ANALYSIS:
+============================================================
+The goal 'john likes peanuts' CANNOT be proven because:
+
+1. No rule defines 'likes' relationships
+   - The KB has facts about 'eats', but nothing connects eating to liking
+
+2. No information about 'john' exists
+   - KB mentions 'anil' and 'harry', but not 'john'
+
+3. To prove this goal, you would need rules like:
+   - Rule: X eats Y ⇒ X likes Y
+   - Fact: john eats peanuts
+   OR
+   - Fact: john is harry (if john=harry)
+   - Rule: harry eats peanuts ⇒ john likes peanuts
